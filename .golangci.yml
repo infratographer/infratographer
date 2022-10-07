@@ -1,0 +1,43 @@
+run:
+  build-tags:
+    - testtools
+
+linters-settings:
+  goimports:
+    local-prefixes: infratographer.com/go
+  gofumpt:
+    extra-rules: true
+
+linters:
+  enable:
+    # default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+
+    # additional linters
+    - bodyclose
+    - gocritic
+    - gocyclo
+    - goerr113
+    - gofmt
+    # - gofumpt
+    - goimports
+    - gomnd
+    - govet
+    - misspell
+    - noctx
+    - revive
+    - stylecheck
+    - whitespace
+    - wsl
+
+    # - bod
+issues:
+  include:
+    - EXC0002

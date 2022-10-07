@@ -1,0 +1,124 @@
+project_name: infratographer
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: infra-api-gateway
+    main: ./cmd/infra-api-gateway
+    binary: infra-api-gateway
+    goos: &build-goos
+      - linux
+      - darwin
+    goarch: &build-goarch
+      - amd64
+      - arm64
+    mod_timestamp: &build-timestamp "{{ .CommitTimestamp }}"
+    env: &build-env
+      - CGO_ENABLED=0
+    ldflags: &build-ldflags |
+      -s
+      -w
+      -extldflags '-static'
+      -X infratographer.com/go/internal/version.version={{.Version}}
+      -X infratographer.com/go/internal/version.gitCommit={{.Commit}}
+      -X infratographer.com/go/internal/version.buildDate={{.Date}}
+      -X infratographer.com/go/internal/version.builder=goreleaser
+  - id: infra
+    main: ./cmd/infra
+    binary: infra
+    goos: # also build a client for windows
+      - linux
+      - darwin
+      - windows
+    ignore:
+      - goos: windows
+        goarch: arm64
+    goarch: *build-goarch
+    mod_timestamp: *build-timestamp
+    env: *build-env
+    ldflags: *build-ldflags
+
+archives:
+  - id: all-binaries
+    format: tar.gz
+    wrap_in_directory: true
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    replacements:
+      # amd64: AMD64
+      # arm: ARM
+      # arm64: ARM64
+      darwin: macOS
+      # linux: Linux
+    format_overrides:
+      - goos: windows
+        format: zip
+    # Windows only has a client library
+    allow_different_binary_count: true
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - typo
+  groups:
+    - title: 🚀 Features
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 🐞 Bug fixes
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: Others
+      order: 999
+
+dockers:
+  - image_templates:
+      - "{{ .Env.REGISTRY }}/{{ .Env.IMAGE_NAME }}:{{ .Version }}"
+    dockerfile: .goreleaser.Dockerfile
+    build_flag_templates:
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://infratographer.com
+      - --label=org.opencontainers.image.source=https://github.com/infratographer/infratographer
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache-2.0
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--oidc-issuer=https://token.actions.githubusercontent.com"
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+    artifacts: checksum
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    args:
+      - "sign"
+      - "--oidc-issuer=https://token.actions.githubusercontent.com"
+      - "${artifact}"
+    artifacts: images
+
+release:
+  draft: true
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
