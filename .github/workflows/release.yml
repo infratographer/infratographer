@@ -7,7 +7,7 @@ on:
 
 jobs:
   goreleaser:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       REGISTRY: "ghcr.io"
       IMAGE_NAME: "infratographer/infratographer"
